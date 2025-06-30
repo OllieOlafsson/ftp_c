@@ -13,15 +13,16 @@
 
 int main()
 {
-	int 		s_fd, file_fd;		
+	int 		s_fd;
+	int		fin_fd, fout_fd;
 	int 		segment;
-	int 		total_received = 0;
+	int 		file_size = 0;
+	int 		option;
 	struct sockaddr_in sock;	//instance of type struct with port and family as members
 	char 		buf[512];
 	char 		*msg;
+	int		msg_size;
 	char		*file_location = "./output.png";
-
-	msg = "1";
 		
 	s_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (s_fd < 0)
@@ -41,21 +42,39 @@ int main()
 		return -1;
 	}
 	
-	msg_size = read(s_fd, buf, 10);
-	read(s_fd, buf, msg_size);
-	write(s_fd, msg, 1);
-	if ( (file_fd = open(file_location, O_RDWR | O_CREAT | O_APPEND, S_IWUSR) ) == -1 ) perror("open() error");
-	else
-	// receive file from server
-	while ( (segment = read(s_fd, buf, 512) ) > 0 )
-	{
-		write(file_fd, buf, segment);
-		total_received += segment;
-		printf("[%d] received\n", total_received);
-	}
+	msg = "1";
 
+	write( s_fd, msg, 1 );
+
+
+	// download file from server
+	if ( strchr(msg, '2') )
+	{
+		if ( (fout_fd = open(file_location, O_RDWR | O_CREAT, S_IRWXU) ) == -1 ) perror("fout open() error");
+		while ( (segment = read(s_fd, buf, 512)) > 0 )
+		{
+			write(fout_fd, buf, segment);
+			file_size += segment;
+			//printf("[%d] received\n", file_size);
+		}
+		printf("received %d bytes\n", file_size);
+	}
+	// upload file to server
+	else if ( strchr(msg, '1') )
+	{
+		if ( (fin_fd = open("./fallout.jpg", O_RDONLY)) < 0 ) perror("fin open() error");
+		while ( (segment = read(fin_fd, buf, 512)) > 0)
+		{
+			write(s_fd, buf, segment);
+			file_size += segment;
+		}
+		printf("%d attempted to send\n", file_size);
+	}
+	else printf("Wrong selection \n");
+				
 	printf("Closing connection...\n");	
-	close(file_fd);
+	close(fin_fd);
+	close(fout_fd);
 	close(s_fd);
 
 	return 0;
